@@ -1,0 +1,18 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# dotenv environment variable files
+.env
+.env.test
+.env.production
+.env.local
+
+# Build files
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
