@@ -12,7 +12,7 @@ const ManageUsers = () => {
 
     const fetchUsers = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/v1/admin/users', { withCredentials: true });
+            const res = await axios.get('/api/v1/admin/users', { withCredentials: true });
             if (res.data.success) {
                 setUsers(res.data.users);
             }
@@ -29,7 +29,7 @@ const ManageUsers = () => {
 
     const handleToggleBlock = async (userId, isBlocked) => {
         try {
-            const res = await axios.post(`http://localhost:5000/api/v1/admin/users/block/${userId}`, {}, { withCredentials: true });
+            const res = await axios.post(`/api/v1/admin/users/block/${userId}`, {}, { withCredentials: true });
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchUsers();
@@ -42,7 +42,7 @@ const ManageUsers = () => {
     const handleDeleteUser = async (userId) => {
         if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
         try {
-            const res = await axios.delete(`http://localhost:5000/api/v1/admin/users/${userId}`, { withCredentials: true });
+            const res = await axios.delete(`/api/v1/admin/users/${userId}`, { withCredentials: true });
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchUsers();

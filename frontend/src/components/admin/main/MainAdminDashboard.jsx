@@ -23,7 +23,7 @@ const MainAdminDashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/v1/admin/stats', { withCredentials: true });
+                const res = await axios.get('/api/v1/admin/stats', { withCredentials: true });
                 if (res.data.success) {
                     setStats(res.data.stats);
                 }

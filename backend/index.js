@@ -34,7 +34,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://job-application-web-git-main-harshad660s-projects.vercel.app", /\.vercel\.app$/],
     credentials: true,
   })
 );
@@ -47,12 +47,24 @@ app.use("/api/v1/application", applicationRoute);
 app.use("/api/v1/ai", aiRoute);
 app.use("/api/v1/admin", adminRoute);
 
+// Serve Static Files for Deployment
+const frontendPath = path.join(__dirname, "../frontend/dist");
+app.use(express.static(frontendPath));
 
+app.get("*", (req, res) => {
+    res.sendFile(path.resolve(frontendPath, "index.html"));
+});
 
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  connectDB();
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        connectDB();
+        console.log(`🚀 Server running on port ${PORT}`);
+    });
+} else {
+    connectDB();
+}
+
+export default app;

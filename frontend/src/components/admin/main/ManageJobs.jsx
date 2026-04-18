@@ -12,7 +12,7 @@ const ManageJobs = () => {
 
     const fetchJobs = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/v1/admin/jobs', { withCredentials: true });
+            const res = await axios.get('/api/v1/admin/jobs', { withCredentials: true });
             if (res.data.success) {
                 setJobs(res.data.jobs);
             }
@@ -30,7 +30,7 @@ const ManageJobs = () => {
     const handleDeleteJob = async (jobId) => {
         if (!window.confirm("Delete this job posting from the platform?")) return;
         try {
-            const res = await axios.delete(`http://localhost:5000/api/v1/admin/jobs/${jobId}`, { withCredentials: true });
+            const res = await axios.delete(`/api/v1/admin/jobs/${jobId}`, { withCredentials: true });
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchJobs();

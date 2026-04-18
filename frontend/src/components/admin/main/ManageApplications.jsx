@@ -11,7 +11,7 @@ const ManageApplications = () => {
 
     const fetchApplications = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/v1/admin/applications', { withCredentials: true });
+            const res = await axios.get('/api/v1/admin/applications', { withCredentials: true });
             if (res.data.success) {
                 setApplications(res.data.applications);
             }
