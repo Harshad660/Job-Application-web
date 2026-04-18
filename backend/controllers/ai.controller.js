@@ -5,7 +5,7 @@ import { User } from '../models/user.model.js';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
 
 // ─── Gemini Initialization ─────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ function getGenAI() {
 
 function getModel() {
     if (!_model) {
-        _model = getGenAI().getGenerativeModel({ model: 'gemini-2.0-flash' });
+        _model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
     }
     return _model;
 }
@@ -34,7 +34,7 @@ function getModel() {
 function getChatModel() {
     if (!_chatModel) {
         _chatModel = getGenAI().getGenerativeModel({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash-lite',
             systemInstruction:
                 'You are a helpful, professional career assistant. Give concise, actionable advice.',
         });
@@ -50,7 +50,7 @@ async function generateText(prompt) {
         const response = await model.generateContent(prompt);
         return response.response.text();
     } catch (err) {
-        console.warn('Gemini error → fallback mock');
+        console.error('[Gemini generateText ERROR]', err?.message || err);
         return getMockResponse(prompt);
     }
 }
@@ -84,6 +84,42 @@ export const chatWithAI = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Message required' });
         }
 
+        // ── Fetch real jobs from DB ────────────────────────────────────
+        const jobs = await Job.find({})
+            .populate('company', 'name')
+            .select('title description requirements salary experienceLevel location jobType position company')
+            .lean();
+
+        const jobContext = jobs.length > 0
+            ? jobs.map((j, i) =>
+                `Job ${i + 1}:
+  Title: ${j.title}
+  Company: ${j.company?.name || 'N/A'}
+  Location: ${j.location}
+  Type: ${j.jobType}
+  Experience Required: ${j.experienceLevel} year(s)
+  Salary: ${j.salary} LPA
+  Positions: ${j.position}
+  Requirements: ${(j.requirements || []).join(', ')}
+  Description: ${(j.description || '').slice(0, 200)}`
+            ).join('\n\n')
+            : 'No jobs are currently listed in the system.';
+
+        // ── Build data-aware system prompt ────────────────────────────
+        const systemPrompt = `You are an AI Career Assistant for a job portal. Your job is to help users find jobs, prepare resumes, and give career advice — but ONLY based on the real job listings provided below.
+
+STRICT RULES:
+- When a user asks about available jobs, roles, or openings, ONLY refer to the jobs listed below. Do NOT invent or suggest jobs not in this list.
+- When recommending jobs, match them to what the user is asking (e.g., if they say "frontend", only show frontend jobs from this list).
+- If no matching jobs exist in the list, say so honestly.
+- For resume tips, interview advice, and general career guidance you may give professional advice.
+- Be concise, friendly, and specific. Always mention the company name and job title when referring to a listing.
+
+=== CURRENT JOB LISTINGS IN THE SYSTEM (${jobs.length} total) ===
+${jobContext}
+=== END OF JOB LISTINGS ===`;
+
+        // ── Build chat history ─────────────────────────────────────────
         let chatHistory = await Chat.findOne({ userId });
         if (!chatHistory) {
             chatHistory = new Chat({ userId, messages: [] });
@@ -98,7 +134,13 @@ export const chatWithAI = async (req, res) => {
                 parts: [{ text: m.content }],
             }));
 
-        const chat = getChatModel().startChat({ history });
+        // ── Start chat with data-aware model ──────────────────────────
+        const dataAwareModel = getGenAI().getGenerativeModel({
+            model: 'gemini-2.5-flash-lite',
+            systemInstruction: systemPrompt,
+        });
+
+        const chat = dataAwareModel.startChat({ history });
         const response = await chat.sendMessage(message);
 
         const reply = response.response.text();
@@ -108,7 +150,8 @@ export const chatWithAI = async (req, res) => {
 
         res.json({ success: true, message: reply });
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Chat error' });
+        console.error('[chatWithAI ERROR]', err?.message || err);
+        res.status(500).json({ success: false, message: err?.message || 'Chat error' });
     }
 };
 
@@ -144,10 +187,8 @@ export const analyzeResume = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing data' });
         }
 
-        const parser = new PDFParse({ data: file.buffer });
-
-        // ✅ FIX 1: renamed variable
-        const pdfData = await parser.getText();
+        // Parse the PDF buffer directly using pdfParse function
+        const pdfData = await pdfParse(file.buffer);
         const resumeText = pdfData.text;
 
         const prompt = `Analyze resume vs job. Return JSON with score, keywords, suggestions.
