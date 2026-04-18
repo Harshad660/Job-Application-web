@@ -19,21 +19,21 @@ try{
     }
 
     const decode = await jwt.verify(token, process.env.SECRET_KEY);
-    if(!decode){
-        return res.status(401).json({
-            message:"Invalid or expired token.",
-            success:false
-        })
-    };
     req.id = decode.userId;
     next();
-}catch(error){
-    console.error("Authentication Error:", error);
+  } catch (error) {
+    console.error("Authentication Error:", error.name, error.message);
+    let message = "Authentication failed";
+    if (error.name === 'TokenExpiredError') {
+      message = "Session expired. Please login again.";
+    } else if (error.name === 'JsonWebTokenError') {
+      message = "Invalid token. Please login again.";
+    }
     return res.status(401).json({
-        message: "Authentication failed",
-        success: false
+      message,
+      success: false
     });
-}
-}
+  }
+};
 
 export default isAuthenticated;
