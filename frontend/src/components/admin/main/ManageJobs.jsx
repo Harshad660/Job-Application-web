@@ -5,6 +5,13 @@ import axios from 'axios';
 import { Trash2, Search, ExternalLink, Calendar, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
+const getAuthConfig = () => ({
+    withCredentials: true,
+    headers: {
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+    }
+});
+
 const ManageJobs = () => {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,7 +19,7 @@ const ManageJobs = () => {
 
     const fetchJobs = async () => {
         try {
-            const res = await axios.get('/api/v1/admin/jobs', { withCredentials: true });
+            const res = await axios.get('/api/v1/admin/jobs', getAuthConfig());
             if (res.data.success) {
                 setJobs(res.data.jobs);
             }
@@ -30,13 +37,13 @@ const ManageJobs = () => {
     const handleDeleteJob = async (jobId) => {
         if (!window.confirm("Delete this job posting from the platform?")) return;
         try {
-            const res = await axios.delete(`/api/v1/admin/jobs/${jobId}`, { withCredentials: true });
+            const res = await axios.delete(`/api/v1/admin/jobs/${jobId}`, getAuthConfig());
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchJobs();
             }
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Failed to delete job');
         }
     };
 

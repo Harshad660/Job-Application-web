@@ -27,7 +27,7 @@ export const postJob = async (req, res) => {
       !location ||
       !jobType ||
       !experience ||
-      !position ||
+      position === undefined || position === null ||
       !companyId
     ) {
       return res.status(400).json({
@@ -43,7 +43,7 @@ export const postJob = async (req, res) => {
       salary: Number(salary),
       location,
       jobType,
-      experienceLevel: experience,
+      experienceLevel: Number(experience),
       position,
       company: companyId, // ✅ correct mapping
       created_by: userId,
@@ -56,6 +56,10 @@ export const postJob = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+    });
   }
 };
 
@@ -86,6 +90,10 @@ export const getAllJobs = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+    });
   }
 };
 
@@ -118,6 +126,10 @@ export const getJobById = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+    });
   }
 };
 
@@ -135,9 +147,9 @@ export const getAdminJobs = async (req, res) => {
       })
       .sort({ createdAt: -1 }); // ✅ CORRECT SORT
 
-    if (!jobs || jobs.length === 0) {
+    if (!jobs) {
       return res.status(404).json({
-        message: "No jobs found",
+        message: "Jobs not found",
         success: false,
       });
     }
@@ -148,5 +160,9 @@ export const getAdminJobs = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+    });
   }
 };

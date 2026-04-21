@@ -5,6 +5,13 @@ import axios from 'axios';
 import { Trash2, Ban, CheckCircle2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
+const getAuthConfig = () => ({
+    withCredentials: true,
+    headers: {
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+    }
+});
+
 const ManageUsers = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,7 +19,7 @@ const ManageUsers = () => {
 
     const fetchUsers = async () => {
         try {
-            const res = await axios.get('/api/v1/admin/users', { withCredentials: true });
+            const res = await axios.get('/api/v1/admin/users', getAuthConfig());
             if (res.data.success) {
                 setUsers(res.data.users);
             }
@@ -29,26 +36,26 @@ const ManageUsers = () => {
 
     const handleToggleBlock = async (userId, isBlocked) => {
         try {
-            const res = await axios.post(`/api/v1/admin/users/block/${userId}`, {}, { withCredentials: true });
+            const res = await axios.post(`/api/v1/admin/users/block/${userId}`, {}, getAuthConfig());
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchUsers();
             }
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Failed to update user status');
         }
     };
 
     const handleDeleteUser = async (userId) => {
         if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
         try {
-            const res = await axios.delete(`/api/v1/admin/users/${userId}`, { withCredentials: true });
+            const res = await axios.delete(`/api/v1/admin/users/${userId}`, getAuthConfig());
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchUsers();
             }
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Failed to delete user');
         }
     };
 

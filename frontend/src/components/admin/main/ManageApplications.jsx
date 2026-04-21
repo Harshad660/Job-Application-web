@@ -4,6 +4,13 @@ import AdminSidebar from './AdminSidebar';
 import axios from 'axios';
 import { Search, Info, User, Briefcase, Clock } from 'lucide-react';
 
+const getAuthConfig = () => ({
+    withCredentials: true,
+    headers: {
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+    }
+});
+
 const ManageApplications = () => {
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -11,7 +18,7 @@ const ManageApplications = () => {
 
     const fetchApplications = async () => {
         try {
-            const res = await axios.get('/api/v1/admin/applications', { withCredentials: true });
+            const res = await axios.get('/api/v1/admin/applications', getAuthConfig());
             if (res.data.success) {
                 setApplications(res.data.applications);
             }

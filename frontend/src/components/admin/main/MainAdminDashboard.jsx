@@ -16,6 +16,13 @@ import {
 } from 'recharts';
 import { Users, Briefcase, FileText, Building2, TrendingUp } from 'lucide-react';
 
+const getAuthConfig = () => ({
+    withCredentials: true,
+    headers: {
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+    }
+});
+
 const MainAdminDashboard = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -23,7 +30,7 @@ const MainAdminDashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const res = await axios.get('/api/v1/admin/stats', { withCredentials: true });
+                const res = await axios.get('/api/v1/admin/stats', getAuthConfig());
                 if (res.data.success) {
                     setStats(res.data.stats);
                 }

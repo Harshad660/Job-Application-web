@@ -37,6 +37,16 @@ const PostJob = () => {
   }
   const submitHandler = async(e) =>{
     e.preventDefault();
+    
+    // Frontend Validation
+    const requiredFields = ['title', 'description', 'requirements', 'salary', 'location', 'jobType', 'experience', 'companyId'];
+    const missingFields = requiredFields.filter(field => !input[field]);
+    
+    if (missingFields.length > 0 || input.position <= 0) {
+      toast.error("Please fill all fields and ensure position is greater than 0");
+      return;
+    }
+
     try{
 setLoading(true);
 const res = await axios.post(`${JOB_API_END_POINT}/post`,input,{
@@ -117,18 +127,27 @@ if(res.data.success){
       </div>
       <div>
         <Label>Job Type</Label>
-        <Input
-        type="text"
-        name="jobType"
-        value={input.jobType}
-        onChange={changeEventHandler}
-        className="focus-visible:ring-offset-0 focus-visible:ring-0 my-1"
-        />
+        <Select 
+          onValueChange={(value) => setInput({...input, jobType: value})}
+          value={input.jobType}
+        >
+          <SelectTrigger className="w-full my-1">
+            <SelectValue placeholder="Select Job Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="Full-time">Full-time</SelectItem>
+              <SelectItem value="Part-time">Part-time</SelectItem>
+              <SelectItem value="Internship">Internship</SelectItem>
+              <SelectItem value="Contract">Contract</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </div>
       <div>
-        <Label>Experience Level</Label>
+        <Label>Experience Level (Years)</Label>
         <Input
-        type="text"
+        type="number"
         name="experience"
         value={input.experience}
         onChange={changeEventHandler}
@@ -157,7 +176,7 @@ if(res.data.success){
     {
       companies.map((company)=>{
         return(
-          <SelectItem value={company?.name?.toLowerCase()}>{company.name}</SelectItem>
+          <SelectItem key={company?._id} value={company?.name?.toLowerCase()}>{company.name}</SelectItem>
         )
       })
     }

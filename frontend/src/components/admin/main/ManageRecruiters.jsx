@@ -5,6 +5,13 @@ import axios from 'axios';
 import { Trash2, CheckCircle, XCircle, Search, UserCheck, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 
+const getAuthConfig = () => ({
+    withCredentials: true,
+    headers: {
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+    }
+});
+
 const ManageRecruiters = () => {
     const [recruiters, setRecruiters] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,7 +19,7 @@ const ManageRecruiters = () => {
 
     const fetchRecruiters = async () => {
         try {
-            const res = await axios.get('/api/v1/admin/recruiters', { withCredentials: true });
+            const res = await axios.get('/api/v1/admin/recruiters', getAuthConfig());
             if (res.data.success) {
                 setRecruiters(res.data.recruiters);
             }
@@ -29,26 +36,26 @@ const ManageRecruiters = () => {
 
     const handleApproval = async (userId, status) => {
         try {
-            const res = await axios.post(`/api/v1/admin/recruiters/approve/${userId}`, { status }, { withCredentials: true });
+            const res = await axios.post(`/api/v1/admin/recruiters/approve/${userId}`, { status }, getAuthConfig());
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchRecruiters();
             }
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Failed to update recruiter status');
         }
     };
 
     const handleDelete = async (userId) => {
         if (!window.confirm("Delete this recruiter account?")) return;
         try {
-            const res = await axios.delete(`/api/v1/admin/users/${userId}`, { withCredentials: true });
+            const res = await axios.delete(`/api/v1/admin/users/${userId}`, getAuthConfig());
             if (res.data.success) {
                 toast.success(res.data.message);
                 fetchRecruiters();
             }
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Failed to delete recruiter');
         }
     };
 

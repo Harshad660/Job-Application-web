@@ -34,7 +34,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://job-application-web-git-main-harshad660s-projects.vercel.app", /\.vercel\.app$/],
+    origin: [/^http:\/\/localhost:\d+$/, "https://job-application-web-git-main-harshad660s-projects.vercel.app", /\.vercel\.app$/],
     credentials: true,
   })
 );

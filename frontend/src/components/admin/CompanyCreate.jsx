@@ -9,31 +9,44 @@ import { Company_API_END_POINT } from "../../../utils/constant.js";
 import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { setSingleCompany } from "../../../redux/companySlice.js";
+import { Loader2 } from "lucide-react";
 
 const CompanyCreate = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
+
   const registeredNewCompany = async () => {
+    if (!name.trim()) {
+      toast.error("Company name is required");
+      return;
+    }
+
     try {
+      setLoading(true);
       const res = await axios.post(`${Company_API_END_POINT}/register`, 
-        
-        {name},{
-          headers:{
-            'Content-Type':'application/json'
+        { name },
+        {
+          headers: {
+            'Content-Type': 'application/json'
           },
-          withCredentials:true
-        });
-        console.log(res);
-        if(res.data.success){
-          dispatch(setSingleCompany(res.data.company));
-            toast.success(res?.data?.message);
-            const companyId = res?.data?.company?._id;
-            navigate(`/admin/companies/${companyId}`)
+          withCredentials: true
         }
-      
+      );
+
+      if (res.data.success) {
+        dispatch(setSingleCompany(res.data.company));
+        toast.success(res?.data?.message);
+        const companyId = res?.data?.company?._id;
+        navigate(`/admin/companies/${companyId}`);
+      }
     } catch (error) {
       console.log(error);
+      const errorMessage = error.response?.data?.message || "Something went wrong";
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
   return (
@@ -57,10 +70,19 @@ const CompanyCreate = () => {
           <Button
             variant="outline"
             onClick={() => navigate("/admin/companies")}
+            disabled={loading}
           >
             Cancel
           </Button>
-          <Button onClick={registeredNewCompany}>Continue</Button>
+          <Button onClick={registeredNewCompany} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait
+              </>
+            ) : (
+              "Continue"
+            )}
+          </Button>
         </div>
       </div>
     </div>
