@@ -86,7 +86,7 @@ const AIChatbotWidget = () => {
                             <Bot className="w-6 h-6" />
                             <div>
                                 <h3 className="font-semibold text-base leading-tight">AI Career Assistant</h3>
-                                <p className="text-xs opacity-75">Powered by Gemini</p>
+                                <p className="text-xs opacity-75">Powered by Groq</p>
                             </div>
                         </div>
                         <button

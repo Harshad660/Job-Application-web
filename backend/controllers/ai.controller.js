@@ -1,303 +1,239 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Chat } from '../models/chat.model.js';
-import { Job } from '../models/job.model.js';
-import { User } from '../models/user.model.js';
-import { createRequire } from 'module';
+import { createRequire } from "module";
+import { callAI } from "../services/ai.service.js";
+import { Chat } from "../models/chat.model.js";
+import { Job } from "../models/job.model.js";
+import { User } from "../models/user.model.js";
 
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
-
-// ─── Gemini Initialization ─────────────────────────────────────────────
-
-let _genAI = null;
-let _model = null;
-let _chatModel = null;
-
-function getGenAI() {
-    if (!_genAI) {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
-
-        console.log(`[AI] Gemini initialized`);
-        _genAI = new GoogleGenerativeAI(apiKey);
-    }
-    return _genAI;
-}
-
-function getModel() {
-    if (!_model) {
-        _model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-    }
-    return _model;
-}
-
-function getChatModel() {
-    if (!_chatModel) {
-        _chatModel = getGenAI().getGenerativeModel({
-            model: 'gemini-2.5-flash-lite',
-            systemInstruction:
-                'You are a helpful, professional career assistant. Give concise, actionable advice.',
-        });
-    }
-    return _chatModel;
-}
-
-// ─── Helpers ───────────────────────────────────────────────────────────
-
-async function generateText(prompt) {
-    try {
-        const model = getModel();
-        const response = await model.generateContent(prompt);
-        return response.response.text();
-    } catch (err) {
-        console.error('[Gemini generateText ERROR]', err?.message || err);
-        return getMockResponse(prompt);
-    }
-}
-
-function getMockResponse(prompt) {
-    return JSON.stringify({
-        message: 'Mock response — set GEMINI_API_KEY',
-    });
-}
+const pdfParse = require("pdf-parse");
 
 function extractJSON(text) {
-    try {
-        let clean = text.trim();
-        clean = clean.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-
-        const match = clean.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-        return JSON.parse(match ? match[0] : clean);
-    } catch {
-        throw new Error('Invalid JSON from AI');
-    }
+  try {
+    const clean = String(text || "")
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
+    const match = clean.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    return JSON.parse(match ? match[0] : clean);
+  } catch {
+    throw new Error("Invalid JSON from AI response");
+  }
 }
 
-// ─── 1. Chatbot ────────────────────────────────────────────────────────
+export const testAI = async (_req, res) => {
+  try {
+    const result = await callAI("Say hello in one short sentence.");
+    return res.json({ success: true, result });
+  } catch (err) {
+    console.error("[testAI ERROR]", err?.response?.data || err?.message || err);
+    return res.status(500).json({ success: false, message: err?.message || "AI test failed" });
+  }
+};
 
 export const chatWithAI = async (req, res) => {
-    try {
-        const { message } = req.body;
-        const userId = req.id;
-
-        if (!message) {
-            return res.status(400).json({ success: false, message: 'Message required' });
-        }
-
-        // ── Fetch real jobs from DB ────────────────────────────────────
-        const jobs = await Job.find({})
-            .populate('company', 'name')
-            .select('title description requirements salary experienceLevel location jobType position company')
-            .lean();
-
-        const jobContext = jobs.length > 0
-            ? jobs.map((j, i) =>
-                `Job ${i + 1}:
-  Title: ${j.title}
-  Company: ${j.company?.name || 'N/A'}
-  Location: ${j.location}
-  Type: ${j.jobType}
-  Experience Required: ${j.experienceLevel} year(s)
-  Salary: ${j.salary} LPA
-  Positions: ${j.position}
-  Requirements: ${(j.requirements || []).join(', ')}
-  Description: ${(j.description || '').slice(0, 200)}`
-            ).join('\n\n')
-            : 'No jobs are currently listed in the system.';
-
-        // ── Build data-aware system prompt ────────────────────────────
-        const systemPrompt = `You are an AI Career Assistant for a job portal. Your job is to help users find jobs, prepare resumes, and give career advice — but ONLY based on the real job listings provided below.
-
-STRICT RULES:
-- When a user asks about available jobs, roles, or openings, ONLY refer to the jobs listed below. Do NOT invent or suggest jobs not in this list.
-- When recommending jobs, match them to what the user is asking (e.g., if they say "frontend", only show frontend jobs from this list).
-- If no matching jobs exist in the list, say so honestly.
-- For resume tips, interview advice, and general career guidance you may give professional advice.
-- Be concise, friendly, and specific. Always mention the company name and job title when referring to a listing.
-
-=== CURRENT JOB LISTINGS IN THE SYSTEM (${jobs.length} total) ===
-${jobContext}
-=== END OF JOB LISTINGS ===`;
-
-        // ── Build chat history ─────────────────────────────────────────
-        let chatHistory = await Chat.findOne({ userId });
-        if (!chatHistory) {
-            chatHistory = new Chat({ userId, messages: [] });
-        }
-
-        chatHistory.messages.push({ role: 'user', content: message });
-
-        const history = chatHistory.messages
-            .slice(0, -1)
-            .map(m => ({
-                role: m.role === 'assistant' ? 'model' : 'user',
-                parts: [{ text: m.content }],
-            }));
-
-        // ── Start chat with data-aware model ──────────────────────────
-        const dataAwareModel = getGenAI().getGenerativeModel({
-            model: 'gemini-2.5-flash-lite',
-            systemInstruction: systemPrompt,
-        });
-
-        const chat = dataAwareModel.startChat({ history });
-        const response = await chat.sendMessage(message);
-
-        const reply = response.response.text();
-
-        chatHistory.messages.push({ role: 'assistant', content: reply });
-        await chatHistory.save();
-
-        res.json({ success: true, message: reply });
-    } catch (err) {
-        console.error('[chatWithAI ERROR]', err?.message || err);
-        res.status(500).json({ success: false, message: err?.message || 'Chat error' });
+  try {
+    console.log("[/ai/chat] BODY:", req.body);
+    const { message } = req.body || {};
+    if (!message) {
+      return res.status(400).json({ success: false, message: "Message required" });
     }
+
+    const userId = req.id;
+    const jobs = await Job.find({})
+      .populate("company", "name")
+      .select("title description requirements salary experienceLevel location jobType position company")
+      .lean();
+
+    const listings = jobs.length
+      ? jobs
+          .map(
+            (j, i) => `Job ${i + 1}:
+Title: ${j.title}
+Company: ${j.company?.name || "N/A"}
+Location: ${j.location}
+Type: ${j.jobType}
+Experience: ${j.experienceLevel} year(s)
+Requirements: ${(j.requirements || []).join(", ")}
+Description: ${(j.description || "").slice(0, 250)}`
+          )
+          .join("\n\n")
+      : "No jobs available right now.";
+
+    let chatHistory = await Chat.findOne({ userId });
+    if (!chatHistory) chatHistory = new Chat({ userId, messages: [] });
+
+    const prompt = `You are a professional career assistant for a job portal.
+Use only real job listings below when discussing openings.
+
+Job listings:
+${listings}
+
+Conversation so far:
+${chatHistory.messages.map((m) => `${m.role}: ${m.content}`).join("\n")}
+
+User: ${message}
+Assistant:`;
+
+    const reply = await callAI(prompt);
+    chatHistory.messages.push({ role: "user", content: message });
+    chatHistory.messages.push({ role: "assistant", content: reply });
+    await chatHistory.save();
+
+    return res.json({ success: true, message: reply });
+  } catch (err) {
+    console.error("[chatWithAI ERROR]", err?.response?.data || err?.message || err);
+    return res.status(500).json({ success: false, message: err?.message || "Chat failed" });
+  }
 };
 
 // ─── 2. Chat History ───────────────────────────────────────────────────
 
 export const getChatHistory = async (req, res) => {
-    try {
-        const chat = await Chat.findOne({ userId: req.id });
-
-        const messages = chat?.messages || [];
-
-        if (messages.length === 0) {
-            messages.push({
-                role: 'assistant',
-                content: 'Hi! I am your AI Career Assistant.',
-            });
-        }
-
-        res.json({ success: true, messages });
-    } catch {
-        res.status(500).json({ success: false });
+  try {
+    const chat = await Chat.findOne({ userId: req.id });
+    const messages = chat?.messages || [];
+    if (!messages.length) {
+      messages.push({ role: "assistant", content: "Hi! I am your AI Career Assistant." });
     }
+    return res.json({ success: true, messages });
+  } catch (err) {
+    console.error("[getChatHistory ERROR]", err?.message || err);
+    return res.status(500).json({ success: false, message: "Failed to fetch chat history" });
+  }
 };
 
 // ─── 3. ATS Resume Analyzer (FIXED) ────────────────────────────────────
 
 export const analyzeResume = async (req, res) => {
-    try {
-        const file = req.file;
-        const { jobDescription } = req.body;
+  try {
+    console.log("[/ai/analyze-resume] BODY:", req.body);
+    console.log("[/ai/analyze-resume] FILE:", req.file?.originalname || "missing");
+    const { jobDescription } = req.body || {};
+    if (!req.file || !jobDescription) {
+      return res.status(400).json({ success: false, message: "Resume PDF and job description are required" });
+    }
 
-        if (!file || !jobDescription) {
-            return res.status(400).json({ success: false, message: 'Missing data' });
-        }
+    const parsedPdf = await pdfParse(req.file.buffer);
+    const resumeText = parsedPdf?.text || "";
+    const prompt = `Analyze this resume against this job description.
+Return only valid JSON with this exact shape:
+{
+  "score": number,
+  "matchingKeywords": string[],
+  "missingKeywords": string[],
+  "suggestions": string[]
+}
 
-        // Parse the PDF buffer directly using pdfParse function
-        const pdfData = await pdfParse(file.buffer);
-        const resumeText = pdfData.text;
-
-        const prompt = `Analyze resume vs job. Return JSON with score, keywords, suggestions.
-
-Job:
+Job description:
 ${jobDescription}
 
 Resume:
 ${resumeText}`;
 
-        const raw = await generateText(prompt);
-
-        // ✅ FIX 2: renamed variable
-        const aiResult = extractJSON(raw);
-
-        res.json({ success: true, data: aiResult });
-    } catch (err) {
-        res.status(500).json({ success: false, message: 'ATS failed' });
-    }
+    const raw = await callAI(prompt);
+    const result = extractJSON(raw);
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("[analyzeResume ERROR]", err?.response?.data || err?.message || err);
+    return res.status(500).json({ success: false, message: err?.message || "ATS analysis failed" });
+  }
 };
 
 // ─── 4. Job Recommendation ─────────────────────────────────────────────
 
 export const recommendJobs = async (req, res) => {
-    try {
-        const user = await User.findById(req.id).lean();
-        const jobs = await Job.find().limit(20).lean();
+  try {
+    const user = await User.findById(req.id).lean();
+    const jobs = await Job.find().limit(20).lean();
 
-        const prompt = `Match this user to the following jobs and return a JSON array of the top recommended jobs.
-Include properties like _id, title, company (with name), location, jobType, and a "matchReason".
-Output only a valid JSON array.
+    const prompt = `Match this user profile to these jobs and return only a JSON array of top recommendations.
+Each item should include: _id, title, company, location, jobType, matchReason.
 
-User Profile:
+User:
 ${JSON.stringify(user?.profile || {})}
 
-Available Jobs:
-${JSON.stringify(jobs)}
-`;
+Jobs:
+${JSON.stringify(jobs)}`;
 
-        const raw = await generateText(prompt);
-        const parsed = extractJSON(raw);
-
-        res.json({ success: true, jobs: parsed });
-    } catch {
-        res.status(500).json({ success: false });
-    }
+    const raw = await callAI(prompt);
+    const parsed = extractJSON(raw);
+    return res.json({ success: true, jobs: Array.isArray(parsed) ? parsed : [] });
+  } catch (err) {
+    console.error("[recommendJobs ERROR]", err?.response?.data || err?.message || err);
+    return res.status(500).json({ success: false, message: "Failed to fetch recommendations" });
+  }
 };
 
 // ─── 5. Resume Builder ────────────────────────────────────────────────
 
 export const buildResume = async (req, res) => {
-    try {
-        const { personalInfo, skills, education, experience } = req.body || {};
+  try {
+    console.log("[/ai/build-resume] BODY:", req.body);
+    const { personalInfo, skills, education, experience } = req.body || {};
+    if (!personalInfo?.fullName) {
+      return res.status(400).json({ success: false, message: "personalInfo.fullName is required" });
+    }
 
-        const prompt = `Generate a modern, ATS-friendly resume JSON based on the following input data.
-Input Details:
-- Personal Info: ${JSON.stringify(personalInfo || {})}
-- Skills: ${JSON.stringify(skills || "")}
-- Education: ${JSON.stringify(education || [])}
-- Experience (Needs optimizing): ${JSON.stringify(experience || [])}
-
-Rewrite the experience "rawDetails" into strong, professional "optimizedBullets".
-Ensure the final output contains exactly this JSON structure:
+    const prompt = `Generate a modern ATS-friendly resume from this input.
+Return only JSON in this exact structure:
 {
   "personalInfo": { "fullName": "", "email": "", "phone": "", "linkedin": "" },
-  "summary": "Professional summary...",
-  "skills": ["Skill1", "Skill2"],
-  "education": [ { "institution": "", "degree": "", "details": "" } ],
-  "experience": [ { "company": "", "role": "", "optimizedBullets": ["Bullet 1", "Bullet 2"] } ]
+  "summary": "string",
+  "skills": ["string"],
+  "education": [{ "institution": "", "degree": "", "details": "" }],
+  "experience": [{ "company": "", "role": "", "optimizedBullets": ["string"] }]
 }
-Output only a valid JSON object.`;
 
-        const raw = await generateText(prompt);
-        const result = extractJSON(raw);
+Input:
+Personal Info: ${JSON.stringify(personalInfo || {})}
+Skills: ${JSON.stringify(skills || "")}
+Education: ${JSON.stringify(education || [])}
+Experience: ${JSON.stringify(experience || [])}`;
 
-        // the frontend expects the object directly inside res.data.resumeData
-        res.json({ success: true, resumeData: result });
-    } catch {
-        res.status(500).json({ success: false });
-    }
+    const raw = await callAI(prompt);
+    const result = extractJSON(raw);
+    return res.json({ success: true, resumeData: result });
+  } catch (err) {
+    console.error("[buildResume ERROR]", err?.response?.data || err?.message || err);
+    return res.status(500).json({ success: false, message: err?.message || "Resume generation failed" });
+  }
 };
 
 // ─── 6. Mock Interview ────────────────────────────────────────────────
 
 export const generateMockInterview = async (req, res) => {
-    try {
-        const { jobRole, experienceLevel, transcript, questionIndex } = req.body;
-
-        let prompt;
-        if (transcript) {
-            prompt = `You are a technical interviewer. The candidate is interviewing for ${jobRole} (${experienceLevel}).
-They gave this answer to question #${questionIndex}: "${transcript}".
-Provide a JSON object with:
-- "feedback": String (constructive feedback on their answer)
-- "score": Number (1-10 rating)
-- "nextQuestion": String (the next interview question, or a brief closing statement if they reached 5 questions)
-Output only a valid JSON object.`;
-        } else {
-            prompt = `You are a technical interviewer. Start an interview for ${jobRole} (${experienceLevel}).
-Provide a JSON object with:
-- "nextQuestion": String (the first interview question)
-Output only a valid JSON object.`;
-        }
-
-        const raw = await generateText(prompt);
-        const result = extractJSON(raw);
-
-        res.json({ success: true, data: result });
-    } catch {
-        res.status(500).json({ success: false });
+  try {
+    console.log("[/ai/mock-interview] BODY:", req.body);
+    const { jobRole, experienceLevel, transcript, questionIndex } = req.body || {};
+    if (!jobRole || !experienceLevel) {
+      return res.status(400).json({ success: false, message: "jobRole and experienceLevel are required" });
     }
+
+    const prompt = transcript
+      ? `You are a technical interviewer.
+Role: ${jobRole}
+Experience level: ${experienceLevel}
+Candidate answer to question #${questionIndex}: "${transcript}"
+
+Return only JSON:
+{
+  "feedback": "string",
+  "score": number,
+  "nextQuestion": "string"
+}`
+      : `You are a technical interviewer.
+Start an interview for role "${jobRole}" with "${experienceLevel}" level.
+Return only JSON:
+{
+  "nextQuestion": "string"
+}`;
+
+    const raw = await callAI(prompt);
+    const result = extractJSON(raw);
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("[generateMockInterview ERROR]", err?.response?.data || err?.message || err);
+    return res.status(500).json({ success: false, message: err?.message || "Mock interview failed" });
+  }
 };

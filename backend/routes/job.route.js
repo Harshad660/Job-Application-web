@@ -6,7 +6,8 @@ import {getAllJobs, getJobById, postJob,getAdminJobs} from "../controllers/job.c
 
 const router = express.Router();
 router.route("/post").post(isAuthenticated, isRecruiter, postJob);
-router.route("/get").get(isAuthenticated,getAllJobs);
+// Public job browsing (students can view without logging in)
+router.route("/get").get(getAllJobs);
 router.route("/getadminjobs").get(isAuthenticated, isRecruiter, getAdminJobs);
-router.route("/get/:id").get(isAuthenticated,getJobById);
+router.route("/get/:id").get(getJobById);
 export default router;

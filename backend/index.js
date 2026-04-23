@@ -13,15 +13,21 @@ import adminRoute from "./routes/admin.route.js";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-dotenv.config({
-  path: path.join(__dirname, "config", ".env"),
-});
+const envCandidates = [
+  path.join(__dirname, ".env"),
+  path.join(__dirname, "config", ".env"),
+  path.join(__dirname, "..", ".env"),
+];
+const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+dotenv.config(envPath ? { path: envPath } : undefined);
+console.log("[ENV] GROQ API KEY loaded:", Boolean(process.env.GROQ_API_KEY));
 
 
 
@@ -46,6 +52,12 @@ app.use("/api/v1/job", jobRoute);
 app.use("/api/v1/application", applicationRoute);
 app.use("/api/v1/ai", aiRoute);
 app.use("/api/v1/admin", adminRoute);
+console.log("Routes loaded");
+
+app.use((err, req, res, _next) => {
+  console.error("GLOBAL ERROR:", err);
+  res.status(500).json({ success: false, message: err?.message || "Internal server error" });
+});
 
 // Serve Static Files for Deployment
 const frontendPath = path.join(__dirname, "../frontend/dist");
@@ -56,7 +68,7 @@ app.get("*", (req, res) => {
 });
 
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     connectDB();

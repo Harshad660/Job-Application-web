@@ -2,6 +2,7 @@ import express from 'express';
 import isAuthenticated from '../middlewares/isAuthenticated.js';
 import multer from 'multer';
 import {
+    testAI,
     chatWithAI,
     getChatHistory,
     analyzeResume,
@@ -11,6 +12,8 @@ import {
 } from '../controllers/ai.controller.js';
 
 const router = express.Router();
+
+router.get('/test-ai', testAI);
 
 // Multer: store files in memory so we can read the buffer directly
 const upload = multer({
