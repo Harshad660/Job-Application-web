@@ -5,7 +5,7 @@ import { Job } from "../models/job.model.js";
 import { User } from "../models/user.model.js";
 
 const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+const { PDFParse } = require("pdf-parse");
 
 function extractJSON(text) {
   try {
@@ -18,6 +18,21 @@ function extractJSON(text) {
     return JSON.parse(match ? match[0] : clean);
   } catch {
     throw new Error("Invalid JSON from AI response");
+  }
+}
+
+async function parseAIJsonWithRepair(rawText) {
+  try {
+    return extractJSON(rawText);
+  } catch {
+    const repairPrompt = `Convert the following content into valid JSON only.
+Do not add markdown or explanation.
+
+Content:
+${String(rawText || "")}`;
+
+    const repaired = await callAI(repairPrompt);
+    return extractJSON(repaired);
   }
 }
 
@@ -114,8 +129,10 @@ export const analyzeResume = async (req, res) => {
       return res.status(400).json({ success: false, message: "Resume PDF and job description are required" });
     }
 
-    const parsedPdf = await pdfParse(req.file.buffer);
+    const parser = new PDFParse({ data: req.file.buffer });
+    const parsedPdf = await parser.getText();
     const resumeText = parsedPdf?.text || "";
+    await parser.destroy();
     const prompt = `Analyze this resume against this job description.
 Return only valid JSON with this exact shape:
 {
@@ -192,11 +209,14 @@ Education: ${JSON.stringify(education || [])}
 Experience: ${JSON.stringify(experience || [])}`;
 
     const raw = await callAI(prompt);
-    const result = extractJSON(raw);
+    const result = await parseAIJsonWithRepair(raw);
     return res.json({ success: true, resumeData: result });
   } catch (err) {
     console.error("[buildResume ERROR]", err?.response?.data || err?.message || err);
-    return res.status(500).json({ success: false, message: err?.message || "Resume generation failed" });
+    const providerMessage = err?.response?.data?.error?.message;
+    return res
+      .status(500)
+      .json({ success: false, message: providerMessage || err?.message || "Resume generation failed" });
   }
 };
 
