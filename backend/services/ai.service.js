@@ -21,21 +21,27 @@ export async function callAI(prompt) {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          Authorization: `Bearer ${process.env.GROQ_API_KEY.trim()}`,
           "Content-Type": "application/json",
         },
-        timeout: 15000,
+        timeout: 20000, // Slightly longer timeout
       }
     );
 
     const content = response?.data?.choices?.[0]?.message?.content;
     if (!content) {
+      console.error("[AI SERVICE] Invalid response shape:", response?.data);
       throw new Error("Invalid AI response shape from Groq");
     }
 
     return content;
   } catch (err) {
-    console.error("[AI SERVICE ERROR]", err?.response?.data || err?.message || err);
-    throw err;
+    const errorMsg = err?.response?.data?.error?.message || err?.message || "Unknown AI error";
+    console.error("[AI SERVICE ERROR]", {
+      status: err?.response?.status,
+      data: err?.response?.data,
+      message: errorMsg
+    });
+    throw new Error(errorMsg);
   }
 }

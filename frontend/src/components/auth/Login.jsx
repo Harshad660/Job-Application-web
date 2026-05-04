@@ -38,8 +38,15 @@ const Login = () => {
     e.preventDefault();
 
     // Validation
+    console.log("Login Attempt:", { email: input.email, role: input.role, passwordProvided: !!input.password });
+    
     if (!input.email || !input.password || !input.role) {
-      toast.error("Please fill all fields");
+      let missing = [];
+      if (!input.email) missing.push("email");
+      if (!input.password) missing.push("password");
+      if (!input.role) missing.push("role");
+      
+      toast.error(`Please fill all fields: ${missing.join(", ")}`);
       return;
     }
 
