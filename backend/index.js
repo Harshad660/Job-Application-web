@@ -53,7 +53,8 @@ app.use(
       // Allow specific projects if needed
       const allowedOrigins = [
         "https://job-application-web-git-main-harshad660s-projects.vercel.app",
-        "https://job-application-web-z26t.vercel.app"
+        "https://job-application-web-z26t.vercel.app",
+        "https://job-application-web.onrender.com"
       ];
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
