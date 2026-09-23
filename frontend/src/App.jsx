@@ -83,11 +83,11 @@ const appRouter = createBrowserRouter([
     element:<ProtectedRoute><AdminJobs/></ProtectedRoute>
   },
   {
-    path:"admin/jobs/create",
+    path:"/admin/jobs/create",
     element:<ProtectedRoute><PostJob/></ProtectedRoute>
   },
   {
-    path:"admin/jobs/:id/applicants",
+    path:"/admin/jobs/:id/applicants",
     element:<ProtectedRoute><Applicants/></ProtectedRoute>
   },
   // Main Admin Routes

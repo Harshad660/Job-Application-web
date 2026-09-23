@@ -30,6 +30,7 @@ export const registerCompany = async(req,res)=>{
 
     }catch(error){
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 }
 
@@ -49,6 +50,7 @@ export const getCompany = async(req,res)=>{
          })
     }catch(error){
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     };
 }
 
@@ -68,6 +70,7 @@ export const getCompanyById = async(req,res)=>{
       })
     }catch(error){
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 }
 

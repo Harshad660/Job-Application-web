@@ -124,12 +124,14 @@ export const login = async (req, res) => {
       profile: user.profile,
     };
 
+    const isProduction = process.env.NODE_ENV === 'production';
     return res
       .status(200)
       .cookie("token", token, {
         maxAge: 1 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        sameSite: 'strict'
+        sameSite: isProduction ? 'none' : 'strict',
+        secure: isProduction,
       })
       .json({
         message: `Welcome back ${user.fullName}`,

@@ -13,6 +13,7 @@ export const getAllUsers = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -26,6 +27,7 @@ export const deleteUser = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -56,6 +58,7 @@ export const toggleBlockUser = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -68,6 +71,7 @@ export const getAllRecruiters = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -98,6 +102,7 @@ export const approveRecruiter = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -110,6 +115,7 @@ export const getAllJobs = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -123,6 +129,7 @@ export const deleteJobByAdmin = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -138,6 +145,7 @@ export const getAllApplications = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };
 
@@ -182,5 +190,6 @@ export const getDashboardStats = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
+        return res.status(500).json({ message: "Internal server error", success: false });
     }
 };

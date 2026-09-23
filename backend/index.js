@@ -93,16 +93,15 @@ app.get("/health", async (req, res) => {
   }
 });
 
-app.use((err, req, res, _next) => {
-  console.error("GLOBAL ERROR:", err);
-  res.status(500).json({ success: false, message: err?.message || "Internal server error" });
-});
-
 // Serve Static Files for Deployment
 const frontendPath = path.join(__dirname, "../frontend/dist");
 if (fs.existsSync(frontendPath)) {
     app.use(express.static(frontendPath));
     app.get("*", (req, res) => {
+        // Don't serve index.html for API routes
+        if (req.path.startsWith("/api/") || req.path === "/health") {
+            return res.status(404).json({ success: false, message: "API endpoint not found" });
+        }
         res.sendFile(path.resolve(frontendPath, "index.html"));
     });
     console.log("Static files served from:", frontendPath);
@@ -112,6 +111,12 @@ if (fs.existsSync(frontendPath)) {
         res.send("API is running...");
     });
 }
+
+// Global Error Handler (must be LAST)
+app.use((err, req, res, _next) => {
+  console.error("GLOBAL ERROR:", err);
+  res.status(500).json({ success: false, message: err?.message || "Internal server error" });
+});
 
 
 const PORT = process.env.PORT || 5000;

@@ -102,7 +102,7 @@ const AIChatbotWidget = () => {
                         {messages.length === 0 && !loading && (
                             <div className="text-center text-sm text-gray-500 mt-10">
                                 <Bot className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                                <p className="font-medium">Hi {user?.fullname?.split(' ')[0] || 'there'}! 👋</p>
+                                <p className="font-medium">Hi {user?.fullName?.split(' ')[0] || 'there'}! 👋</p>
                                 <p className="mt-1 opacity-75">Ask me about jobs, resumes, or interview tips.</p>
                             </div>
                         )}
